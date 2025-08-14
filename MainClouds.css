@@ -1,56 +1,63 @@
 body {
     margin: 0;
+    height: 100vh;
+    background: #87CEEB; /* Sky blue */
     overflow: hidden;
-    background: #87ceeb; /* sky blue */
+    position: relative;
     font-family: Arial, sans-serif;
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-/* Canvas behind everything */
-#cloudCanvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: -1;
-}
-
-/* Frosted header */
-.frosted-header {
+    user-select: none; /* Prevent text selection */
+  }
+  
+  /* Frosted glass header */
+  .frosted-header {
     font-size: 2.5rem;
-    padding: 15px 25px;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    backdrop-filter: blur(10px);
+    font-weight: bold;
+    padding: 10px 20px;
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    backdrop-filter: blur(6px);
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 12px;
-    width: fit-content;
-    margin: 20px auto;
-}
-
-/* Frosted button */
-.frosted-btn {
-    display: inline-block;
-    margin-top: 20px;
-    padding: 15px 25px;
-    font-size: 1.2rem;
-    background: rgba(255, 255, 255, 0.2);
-    color: #87ceeb;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.85);
+  }
+  
+  /* Frosted glass button */
+  .frosted-btn {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.15);
+    color: #87CEEB;
+    font-size: 1.5rem;
+    padding: 10px 25px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
-    backdrop-filter: blur(10px);
     cursor: pointer;
-    transition: transform 0.2s ease, background 0.3s ease;
-}
-
-.frosted-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.05);
-}
-
-main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+    backdrop-filter: blur(6px);
+    transition: transform 0.2s ease;
+  }
+  
+  .frosted-btn:hover {
+    transform: translateX(-50%) scale(1.05);
+  }
+  
+  /* Clouds */
+  .cloud {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    box-shadow:
+      -40px 0px 0 0 white,
+      -20px -20px 0 0 white,
+      20px -20px 0 0 white,
+      40px 0px 0 0 white;
+    width: 80px;
+    height: 50px;
+  }
+  
 
   
