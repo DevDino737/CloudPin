@@ -1,13 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CloudPin</title>
-<link rel="stylesheet" href="MainClouds.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudPin</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <header class="frosted-header">CloudPin</header>
 
-<script src="Clouds.js"></script>
+    <main>
+        <label for="cameraInput" class="frosted-btn">Open Camera</label>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+    </main>
+
+    <canvas id="cloudCanvas"></canvas>
+    <script src="Clouds.js"></script>
 </body>
 </html>
