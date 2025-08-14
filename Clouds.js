@@ -1,6 +1,6 @@
 const body = document.body;
 
-// Track current cloud vertical positions
+// Track cloud positions for spacing within each group
 let topClouds = [];
 let bottomClouds = [];
 
@@ -11,22 +11,27 @@ function createCloud() {
   const scale = 0.5 + Math.random() * 1.2;
   cloud.style.transform = `scale(${scale})`;
 
+  const gap = 100; // Space between top and bottom clouds
   let topPos;
-  const maxAttempts = 20;
-  let attempts = 0;
   let isTop = Math.random() < 0.5;
 
-  // Choose vertical position without making a blob
+  // Top clouds spawn only in top area, bottom clouds in bottom area
+  const topArea = window.innerHeight / 2 - gap / 2;
+  const bottomAreaStart = window.innerHeight / 2 + gap / 2;
+
+  const maxAttempts = 20;
+  let attempts = 0;
+
   do {
     if (isTop) {
-      topPos = Math.random() * (window.innerHeight / 2 - 60);
+      topPos = Math.random() * topArea;
     } else {
-      topPos = window.innerHeight / 2 + Math.random() * (window.innerHeight / 2 - 60);
+      topPos = bottomAreaStart + Math.random() * (window.innerHeight - bottomAreaStart - 60);
     }
     attempts++;
     const cloudArray = isTop ? topClouds : bottomClouds;
     const overlapping = cloudArray.filter(pos => Math.abs(pos - topPos) < 80).length;
-    if (overlapping < 2) break; // max 2 clouds vertically
+    if (overlapping < 2) break;
   } while (attempts < maxAttempts);
 
   cloud.style.top = topPos + 'px';
@@ -90,4 +95,5 @@ setInterval(createCloud, 6000 + Math.random() * 4000);
 
 // Initial clouds
 for (let i = 0; i < 3; i++) createCloud();
+
 
