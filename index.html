@@ -15,12 +15,28 @@
     </header>
 
     <main>
-        <!-- Native camera capture -->
-        <input type="file" accept="image/*" capture="environment" id="cameraInput">
-        <!-- Display photo and cloud info -->
+        <!-- Hidden input to open the camera -->
+        <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none;">
+
+        <!-- Button that triggers the camera -->
+        <button id="openCameraBtn">
+            Open Camera
+        </button>
+
+        <!-- Area to display the captured photo + cloud info -->
         <div id="output"></div>
     </main>
 
+    <!-- JS files -->
     <script src="Clouds.js" defer></script>
+    <script src="CloudCapture.js" defer></script>
+
+    <script>
+        // Trigger camera when button is clicked
+        document.getElementById('openCameraBtn').addEventListener('click', () => {
+            document.getElementById('cameraInput').click();
+        });
+    </script>
 </body>
 </html>
+
