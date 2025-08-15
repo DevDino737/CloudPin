@@ -7,15 +7,18 @@
     <link rel="stylesheet" href="MainClouds.css">
 </head>
 <body>
-    <div id="cloudContainer"></div> <!-- Clouds behind content -->
+    <!-- Clouds background -->
+    <div id="cloudContainer"></div>
 
     <header>
         <h1 class="frosted-text">CloudPin</h1>
     </header>
 
     <main>
-        <button id="cameraBtn">Open Camera</button>
-        <video id="cameraFeed" autoplay playsinline style="display:none;"></video>
+        <!-- Native camera capture -->
+        <input type="file" accept="image/*" capture="environment" id="cameraInput">
+        <!-- Display photo and cloud info -->
+        <div id="output"></div>
     </main>
 
     <script src="Clouds.js" defer></script>
