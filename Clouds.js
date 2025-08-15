@@ -1,60 +1,60 @@
-const body = document.body;
+const cloudContainer = document.getElementById('cloudContainer');
 
-function createCloud() {
-  const cloud = document.createElement('div');
-  cloud.className = 'cloud';
-
-  const scale = 0.5 + Math.random() * 1.2;
-  cloud.style.transform = `scale(${scale})`;
-
-  const topPos = Math.random() * window.innerHeight;
-  cloud.style.top = topPos + 'px';
-
-  let speed, direction;
-  if (topPos < window.innerHeight / 2) {
-    direction = 'right';
-    cloud.style.left = '-120px';
-    speed = 0.4 + Math.random() * 0.3;
-  } else {
-    direction = 'left';
-    cloud.style.left = window.innerWidth + 120 + 'px';
-    speed = 0.2 + Math.random() * 0.3;
-  }
-
-  cloud.dataset.direction = direction;
-  cloud.dataset.speed = speed;
-
-  body.appendChild(cloud);
-
-  function move() {
-    let left = parseFloat(cloud.style.left);
-    const s = parseFloat(cloud.dataset.speed);
-    if (cloud.dataset.direction === 'right') {
-      if (left > window.innerWidth + 120) {
-        cloud.remove();
-        return;
-      }
-      cloud.style.left = left + s + 'px';
-    } else {
-      if (left < -120) {
-        cloud.remove();
-        return;
-      }
-      cloud.style.left = left - s + 'px';
-    }
-    requestAnimationFrame(move);
-  }
-
-  move();
+// Create clouds
+function createCloud(yPos, layer) {
+    let cloud = document.createElement('div');
+    cloud.classList.add('cloud');
+    cloud.style.width = Math.random() * 150 + 100 + 'px';
+    cloud.style.height = cloud.style.width;
+    cloud.style.top = yPos + 'px';
+    cloud.style.left = Math.random() * window.innerWidth + 'px';
+    cloud.dataset.layer = layer;
+    cloudContainer.appendChild(cloud);
+    return cloud;
 }
 
-setInterval(createCloud, 6000 + Math.random() * 5000);
-for (let i = 0; i < 2; i++) createCloud();
+// Top clouds move right
+let topClouds = [];
+for (let i = 0; i < 4; i++) {
+    topClouds.push(createCloud(Math.random() * (window.innerHeight / 2 - 50), 'top'));
+}
 
-document.getElementById('cameraBtn').addEventListener('click', () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.capture = 'environment';
-  input.click();
+// Bottom clouds move left
+let bottomClouds = [];
+for (let i = 0; i < 4; i++) {
+    bottomClouds.push(createCloud(Math.random() * (window.innerHeight / 2) + window.innerHeight / 2, 'bottom'));
+}
+
+// Animate clouds
+function animate() {
+    topClouds.forEach(cloud => {
+        let left = parseFloat(cloud.style.left);
+        left += 0.4;
+        if (left > window.innerWidth + 200) left = -200;
+        cloud.style.left = left + 'px';
+    });
+
+    bottomClouds.forEach(cloud => {
+        let left = parseFloat(cloud.style.left);
+        left -= 0.3;
+        if (left < -200) left = window.innerWidth + 200;
+        cloud.style.left = left + 'px';
+    });
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+
+// Camera button
+document.getElementById("cameraBtn").addEventListener("click", async () => {
+    const video = document.getElementById('cameraFeed');
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = 'block';
+    } catch (err) {
+        alert("Camera access denied or not supported.");
+        console.error(err);
+    }
 });

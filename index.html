@@ -1,16 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CloudPin</title>
-  <link rel="stylesheet" href="Mainclouds.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudPin</title>
+    <link rel="stylesheet" href="Mainclouds.css">
 </head>
 <body>
-  <header class="frosted-header">CloudPin</header>
-  
-  <button class="frosted-btn" id="cameraBtn">📷 Take Photo</button>
+    <div id="cloudContainer"></div> <!-- Clouds behind content -->
 
-  <script src="Clouds.js"></script>
+    <header>
+        <h1 class="frosted-text">CloudPin</h1>
+    </header>
+
+    <main>
+        <button id="cameraBtn">Open Camera</button>
+        <video id="cameraFeed" autoplay playsinline style="display:none;"></video>
+    </main>
+
+    <script src="Clouds.js"></script>
 </body>
 </html>
