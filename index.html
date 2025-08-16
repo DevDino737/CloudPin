@@ -1,36 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudPin</title>
-    <link rel="stylesheet" href="MainClouds.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CloudPin – Ground Map</title>
+
+  <!-- Your styles (optional background clouds, etc.) -->
+  <link rel="stylesheet" href="MainClouds.css" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR8f0A="
+    crossorigin=""
+  />
+  <style>
+    /* Minimal layout helpers */
+    main { max-width: 900px; margin: 0 auto; padding: 16px; }
+    #controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    button { padding: 10px 14px; border-radius: 8px; border: none; cursor: pointer; }
+    #output img { max-width: 320px; border-radius: 8px; display: block; margin-bottom: 8px; }
+    #map { width: 100%; height: 360px; border-radius: 12px; overflow: hidden; display: none; }
+    .info { margin: 6px 0; }
+    .muted { color: #666; font-size: 0.95rem; }
+  </style>
 </head>
 <body>
-    <!-- Clouds background -->
-    <div id="cloudContainer"></div>
+  <!-- Optional clouds bg -->
+  <div id="cloudContainer"></div>
 
-    <header>
-        <h1 class="frosted-text">CloudPin</h1>
-    </header>
+  <header>
+    <h1 class="frosted-text" style="text-align:center;">CloudPin</h1>
+  </header>
 
-    <main>
-        <!-- Hidden camera input -->
-        <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none;">
+  <main>
+    <div id="controls">
+      <!-- Hidden camera input (uses native camera on mobile) -->
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none;"/>
 
-        <!-- Camera button -->
-        <button id="openCameraBtn">Open Camera</button>
+      <button id="openCameraBtn">Snap Cloud Photo</button>
+      <button id="enableSensorsBtn" title="May be required on iOS">Enable Compass</button>
+    </div>
 
-        <!-- Output for photo and weather -->
-        <div id="output"></div>
+    <div id="output" class="info muted">Take a quick photo of the cloud you see. We’ll estimate which city it’s over and mark it on the map with a red circle.</div>
 
-        <!-- Sky map -->
-        <canvas id="skyMap" width="300" height="300" style="border:1px solid #333; margin-top:20px; display:none;"></canvas>
-    </main>
+    <!-- Ground map (Leaflet) -->
+    <div id="map"></div>
+  </main>
 
-    <!-- JS files -->
-    <script src="Clouds.js" defer></script>
-    <script src="CloudPin.js" defer></script>
+  <!-- Your decorative clouds animation (optional) -->
+  <script src="Clouds.js" defer></script>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+    defer
+  ></script>
+
+  <!-- App logic -->
+  <script src="CloudPin.js" defer></script>
 </body>
 </html>
-
