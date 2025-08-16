@@ -15,33 +15,22 @@
     </header>
 
     <main>
-        <!-- Hidden input to open the camera -->
+        <!-- Hidden camera input -->
         <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none;">
 
-        <!-- Button that triggers the camera -->
-        <button id="openCameraBtn">
-            Open Camera
-        </button>
+        <!-- Camera button -->
+        <button id="openCameraBtn">Open Camera</button>
 
-        <!-- Area to display the captured photo + cloud info -->
+        <!-- Output for photo and weather -->
         <div id="output"></div>
+
+        <!-- Sky map -->
+        <canvas id="skyMap" width="300" height="300" style="border:1px solid #333; margin-top:20px; display:none;"></canvas>
     </main>
 
-   
-    <input type="file" accept="image/*" capture="environment" id="cameraInput">
-    <div id="output"></div>
-   
     <!-- JS files -->
     <script src="Clouds.js" defer></script>
     <script src="CloudPin.js" defer></script>
-    
-    
-    <script>
-        // Trigger camera when button is clicked
-        document.getElementById('openCameraBtn').addEventListener('click', () => {
-            document.getElementById('cameraInput').click();
-        });
-    </script>
 </body>
 </html>
 
