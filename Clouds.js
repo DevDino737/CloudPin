@@ -1,6 +1,6 @@
 const cloudContainer = document.getElementById('cloudContainer');
 
-// Create clouds
+// Create a single cloud
 function createCloud(yPos, layer) {
     let cloud = document.createElement('div');
     cloud.classList.add('cloud');
@@ -13,48 +13,42 @@ function createCloud(yPos, layer) {
     return cloud;
 }
 
-// Top clouds move right
+// Move cloud smoothly
+function moveCloud(cloud, speed) {
+    let newLeft = cloud.offsetLeft + speed;
+
+    // If cloud goes too far right, respawn off-screen left
+    if (newLeft > window.innerWidth) {
+        cloud.style.left = -400 + "px";
+        cloud.style.top = Math.random() * window.innerHeight + "px";
+    }
+    // If cloud goes too far left, respawn off-screen right
+    else if (newLeft < -400) {
+        cloud.style.left = window.innerWidth + "px";
+        cloud.style.top = Math.random() * window.innerHeight + "px";
+    } 
+    else {
+        cloud.style.left = newLeft + "px";
+    }
+}
+
+// Spawn fewer clouds
 let topClouds = [];
-for (let i = 0; i < 1; i++) {
+for (let i = 0; i < 2; i++) { // fewer clouds
     topClouds.push(createCloud(Math.random() * (window.innerHeight / 2 - 50), 'top'));
 }
 
-// Bottom clouds move left
 let bottomClouds = [];
-for (let i = 0; i < 1; i++) {
+for (let i = 0; i < 2; i++) { // fewer clouds
     bottomClouds.push(createCloud(Math.random() * (window.innerHeight / 2) + window.innerHeight / 2, 'bottom'));
 }
 
-// Animate clouds
-function animate() {
-    topClouds.forEach(cloud => {
-        let left = parseFloat(cloud.style.left);
-        left += 0.4;
-        if (left > window.innerWidth + 200) left = -200;
-        cloud.style.left = left + 'px';
-    });
-
-    bottomClouds.forEach(cloud => {
-        let left = parseFloat(cloud.style.left);
-        left -= 0.3;
-        if (left < -200) left = window.innerWidth + 200;
-        cloud.style.left = left + 'px';
-    });
-
-    requestAnimationFrame(animate);
+// Animate all clouds forever
+function animateClouds() {
+    topClouds.forEach(cloud => moveCloud(cloud, 0.3));   // slow right
+    bottomClouds.forEach(cloud => moveCloud(cloud, -0.2)); // slow left
+    requestAnimationFrame(animateClouds);
 }
 
-animate();
+animateClouds();
 
-// Camera button
-document.getElementById("cameraBtn").addEventListener("click", async () => {
-    const video = document.getElementById('cameraFeed');
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        video.style.display = 'block';
-    } catch (err) {
-        alert("Camera access denied or not supported.");
-        console.error(err);
-    }
-});
