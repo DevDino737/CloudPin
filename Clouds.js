@@ -15,13 +15,13 @@ function createCloud(yPos, layer) {
 
 // Top clouds move right
 let topClouds = [];
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 2; i++) {
     topClouds.push(createCloud(Math.random() * (window.innerHeight / 2 - 50), 'top'));
 }
 
 // Bottom clouds move left
 let bottomClouds = [];
-for (let i = 0; i < 4; i++) {
+for (let i = 0; i < 2; i++) {
     bottomClouds.push(createCloud(Math.random() * (window.innerHeight / 2) + window.innerHeight / 2, 'bottom'));
 }
 
