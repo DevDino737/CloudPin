@@ -1,66 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CloudPin – Ground Map</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Snap</title>
+  <link rel="stylesheet" href="MainClouds.css">
 
-  <!-- Your styles (optional background clouds, etc.) -->
-  <link rel="stylesheet" href="MainClouds.css" />
-
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR8f0A="
-    crossorigin=""
-  />
-  <style>
-    /* Minimal layout helpers */
-    main { max-width: 900px; margin: 0 auto; padding: 16px; }
-    #controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-    button { padding: 10px 14px; border-radius: 8px; border: none; cursor: pointer; }
-    #output img { max-width: 320px; border-radius: 8px; display: block; margin-bottom: 8px; }
-    #map { width: 100%; height: 360px; border-radius: 12px; overflow: hidden; display: none; }
-    .info { margin: 6px 0; }
-    .muted { color: #666; font-size: 0.95rem; }
-  </style>
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
-  <!-- Optional clouds bg -->
-  <div id="cloudContainer"></div>
+  <h1 class="frosted-text">Cloud Snap</h1>
 
-  <header>
-    <h1 class="frosted-text" style="text-align:center;">CloudPin</h1>
-  </header>
+  <!-- Button to open camera -->
+  <button id="snapBtn">📸 Snap Cloud Photo</button>
 
-  <main>
-    <div id="controls">
-      <!-- Hidden camera input (uses native camera on mobile) -->
-      <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none;"/>
+  <!-- Camera feed -->
+  <video id="cameraFeed" autoplay playsinline></video>
+  <canvas id="photoCanvas" style="display:none;"></canvas>
 
-      <button id="openCameraBtn">Snap Cloud Photo</button>
-      <button id="enableSensorsBtn" title="May be required on iOS">Enable Compass</button>
-    </div>
+  <!-- Where map will go -->
+  <div id="map"></div>
 
-    <div id="output" class="info muted">Take a quick photo of the cloud you see. We’ll estimate which city it’s over and mark it on the map with a red circle.</div>
+  <script>
+    const snapBtn = document.getElementById("snapBtn");
+    const video = document.getElementById("cameraFeed");
+    const canvas = document.getElementById("photoCanvas");
 
-    <!-- Ground map (Leaflet) -->
-    <div id="map"></div>
-  </main>
+    // Initialize map
+    const map = L.map("map").setView([39, -95], 4); // default USA
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19
+    }).addTo(map);
 
-  <!-- Your decorative clouds animation (optional) -->
-  <script src="Clouds.js" defer></script>
+    // Ask for camera
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Camera not available: " + err.message);
+      }
+    }
 
-  <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-    defer
-  ></script>
+    // When user clicks snap
+    snapBtn.addEventListener("click", async () => {
+      // Take picture (draw video frame to canvas)
+      const ctx = canvas.getContext("2d");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
 
-  <!-- App logic -->
-  <script src="CloudPin.js" defer></script>
+      // Get location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+
+          // Zoom map to user
+          map.setView([lat, lon], 10);
+
+          // Add red circle
+          L.circle([lat, lon], {
+            color: "red",
+            fillColor: "#f03",
+            fillOpacity: 0.4,
+            radius: 10000 // 10km radius for visibility
+          }).addTo(map)
+            .bindPopup("Cloud is above this area 🌥️")
+            .openPopup();
+        }, (err) => {
+          alert("Geolocation error: " + err.message);
+        });
+      } else {
+        alert("Geolocation not supported.");
+      }
+    });
+
+    // Start camera on load
+    startCamera();
+  </script>
 </body>
 </html>

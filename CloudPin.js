@@ -1,26 +1,28 @@
-// ====== Elements ======
+// ===== Elements
 const cameraInput = document.getElementById("cameraInput");
-const openCameraBtn = document.getElementById("openCameraBtn");
+const snapBtn = document.getElementById("snapBtn");
 const enableSensorsBtn = document.getElementById("enableSensorsBtn");
-const output = document.getElementById("output");
+const statusEl = document.getElementById("status");
+const photoPreview = document.getElementById("photoPreview");
 const mapDiv = document.getElementById("map");
 
-// ====== State ======
-let deviceHeading = null;  // degrees (0..360), 0 = North, 90 = East
-let tiltAngle = null;      // beta tilt, not required but can improve distance guess
-let map, userMarker, cloudCircle, cloudMarker, lineToCloud;
+// ===== State
+let deviceHeading = null; // 0..360 (0 = North, 90 = East)
+let tiltBeta = null;      // phone tilt (optional)
+let userPos = null;       // { lat, lon }
+let map, cloudCircle, cloudMarker;
 
-// ====== Helpers ======
-const toRad = d => (d * Math.PI) / 180;
-const toDeg = r => (r * 180) / Math.PI;
+// ===== Utils
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
 
-// Project a destination lat/lon given start, bearing (deg), distance (km)
+// Project a point from lat/lon by bearing (deg) and distance (km)
 function projectPoint(latDeg, lonDeg, bearingDeg, distanceKm) {
-  const R = 6371.0; // Earth radius (km)
+  const R = 6371; // km
   const φ1 = toRad(latDeg);
   const λ1 = toRad(lonDeg);
-  const θ = toRad(bearingDeg);
-  const δ = distanceKm / R;
+  const θ  = toRad(bearingDeg);
+  const δ  = distanceKm / R;
 
   const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
   const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
@@ -36,40 +38,18 @@ function projectPoint(latDeg, lonDeg, bearingDeg, distanceKm) {
   return { lat: toDeg(φ2), lon: toDeg(λ2) };
 }
 
-// Very rough distance estimate from phone tilt.
-// If you hold phone ~level at horizon (tilt ~0), cloud is "far".
-// If you tilt up (negative beta), we assume closer.
-// We clamp to a reasonable range (10–80 km) for visible low clouds.
+// Very rough distance guess from tilt; fallback if no tilt
 function estimateDistanceKm(betaTilt) {
-  // Defaults if we can’t read tilt:
-  if (betaTilt === null || isNaN(betaTilt)) return 40;
-
-  // beta: front/back tilt ~ (-180..180)
-  // Assume 0° ≈ horizon-ish when holding phone upright-ish.
-  // Map |beta| to distance range. More up (negative) => closer.
-  const abs = Math.abs(betaTilt);
-  let d = 60 - (abs * 0.6); // crude linear map
-  d = Math.max(10, Math.min(80, d));
-  return Math.round(d);
+  if (betaTilt === null || isNaN(betaTilt)) return 20; // default ~20 km
+  // If phone is closer to horizon (|beta| small), assume farther;
+  // if tilted up a lot (|beta| big), assume closer.
+  const abs = Math.min(60, Math.abs(betaTilt)); // cap influence
+  const d = 30 - abs * 0.3; // 30km down to ~12km
+  return Math.max(8, Math.round(d));
 }
 
-// Build a friendly place name from Nominatim reverse result
-function formatPlaceName(addr) {
-  if (!addr) return "unknown place";
-  return (
-    addr.city ||
-    addr.town ||
-    addr.village ||
-    addr.hamlet ||
-    addr.municipality ||
-    addr.county ||
-    addr.state ||
-    "unknown place"
-  ) + (addr.state ? `, ${addr.state}` : "");
-}
-
-// Initialize Leaflet map (once)
-function ensureMap(lat, lon) {
+// ===== Map
+function ensureMap() {
   if (!map) {
     map = L.map("map");
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -77,90 +57,46 @@ function ensureMap(lat, lon) {
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
   }
-  // Fit to user by default
-  map.setView([lat, lon], 10);
   mapDiv.style.display = "block";
 }
 
-// Draw/update markers & radius on map
-function drawOnMap(user, cloud, cityLabel) {
-  ensureMap(user.lat, user.lon);
-
-  // User marker
-  if (!userMarker) {
-    userMarker = L.marker([user.lat, user.lon], { title: "Your location" }).addTo(map);
-  } else {
-    userMarker.setLatLng([user.lat, user.lon]);
-  }
-
-  // Cloud circle + marker
-  const radiusMeters = 3000; // radius showing uncertainty (~3 km)
+function showCloudOnMap(lat, lon) {
+  ensureMap();
+  const radiusMeters = 3000; // 3 km red radius (uncertainty)
   if (!cloudCircle) {
-    cloudCircle = L.circle([cloud.lat, cloud.lon], {
+    cloudCircle = L.circle([lat, lon], {
       radius: radiusMeters,
       color: "red",
       fillColor: "red",
       fillOpacity: 0.25
     }).addTo(map);
+    cloudMarker = L.marker([lat, lon]).addTo(map)
+      .bindPopup("☁️ Estimated cloud location")
+      .openPopup();
   } else {
-    cloudCircle.setLatLng([cloud.lat, cloud.lon]);
+    cloudCircle.setLatLng([lat, lon]);
     cloudCircle.setRadius(radiusMeters);
+    cloudMarker.setLatLng([lat, lon]);
   }
-
-  if (!cloudMarker) {
-    cloudMarker = L.marker([cloud.lat, cloud.lon], { title: "Estimated cloud position" })
-      .addTo(map)
-      .bindPopup(`☁️ Cloud above ~<b>${cityLabel}</b>`);
-  } else {
-    cloudMarker.setLatLng([cloud.lat, cloud.lon]);
-    cloudMarker.setPopupContent(`☁️ Cloud above ~<b>${cityLabel}</b>`);
-  }
-
-  // Line from you to cloud
-  if (lineToCloud) {
-    map.removeLayer(lineToCloud);
-  }
-  lineToCloud = L.polyline([[user.lat, user.lon], [cloud.lat, cloud.lon]], {
-    color: "red",
-    weight: 2,
-    opacity: 0.7
-  }).addTo(map);
-
-  // Fit map to both points
-  const group = L.featureGroup([userMarker, cloudCircle]);
-  map.fitBounds(group.getBounds().pad(0.4));
+  map.setView([lat, lon], 11);
 }
 
-// Reverse geocode the projected cloud point to get a city name
-async function reverseGeocode(lat, lon) {
-  // Note: Please be polite with Nominatim (cache, low rate). This MVP does a single lookup per photo.
-  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-    lat
-  )}&lon=${encodeURIComponent(lon)}&zoom=10&addressdetails=1`;
-  const res = await fetch(url, {
-    headers: { "Accept-Language": "en" }
-  });
-  if (!res.ok) throw new Error("Reverse geocoding failed");
-  return await res.json();
-}
-
-// ====== Device orientation (compass + tilt) ======
-function handleOrientation(e) {
-  // alpha: compass (0..360). Some Androids need webkitCompassHeading from DeviceOrientationAbsolute.
+// ===== Sensors (compass + tilt)
+function onOrientation(e) {
+  // iOS sometimes provides webkitCompassHeading (0 = North, clockwise)
   if (typeof e.webkitCompassHeading === "number") {
-    deviceHeading = e.webkitCompassHeading.toFixed(0); // iOS alternative
-  } else {
-    deviceHeading = (typeof e.alpha === "number") ? e.alpha.toFixed(0) : null;
-    // Convert alpha from 0 = device coordinate frame to compass? Many browsers already provide magnetic north.
-    // For MVP we use it as-is. You may calibrate/compensate later if needed.
+    deviceHeading = e.webkitCompassHeading;
+  } else if (typeof e.alpha === "number") {
+    // alpha is 0..360. Many browsers expose magnetic north.
+    // Using as-is for MVP.
+    deviceHeading = e.alpha;
   }
-
-  tiltAngle = (typeof e.beta === "number") ? e.beta.toFixed(0) : null;
+  tiltBeta = (typeof e.beta === "number") ? e.beta : tiltBeta;
 }
 
-window.addEventListener("deviceorientation", handleOrientation, { passive: true });
+window.addEventListener("deviceorientation", onOrientation, { passive: true });
 
-// iOS needs a user gesture to grant sensor access
+// iOS: must request permission for motion/compass
 enableSensorsBtn.addEventListener("click", async () => {
   try {
     if (typeof DeviceOrientationEvent !== "undefined" &&
@@ -168,65 +104,76 @@ enableSensorsBtn.addEventListener("click", async () => {
       const resp = await DeviceOrientationEvent.requestPermission();
       if (resp !== "granted") throw new Error("Permission not granted");
     }
-    output.innerHTML = "✅ Compass/tilt enabled. Now snap a cloud photo.";
+    statusEl.textContent = "✅ Compass enabled. Now tap ‘Snap Cloud Photo’.";
   } catch (err) {
-    output.innerHTML = `⚠️ Couldn’t enable compass: ${err.message}. You can still take a photo.`;
+    statusEl.textContent = `⚠️ Couldn’t enable compass: ${err.message}`;
   }
 });
 
-// ====== Camera flow ======
-openCameraBtn.addEventListener("click", () => cameraInput.click());
+// ===== Geolocation (must be HTTPS or localhost)
+function getLocationOnce() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation not supported"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  });
+}
+
+// ===== Camera
+snapBtn.addEventListener("click", () => {
+  cameraInput.click(); // opens native camera
+});
 
 cameraInput.addEventListener("change", async (evt) => {
   const file = evt.target.files?.[0];
   if (!file) return;
 
-  // Show photo preview
-  output.innerHTML = "";
-  const img = document.createElement("img");
-  img.src = URL.createObjectURL(file);
-  img.alt = "Cloud photo";
-  output.appendChild(img);
+  // Show a tiny preview (optional)
+  const url = URL.createObjectURL(file);
+  photoPreview.src = url;
+  photoPreview.style.display = "block";
 
-  // Get location
-  if (!navigator.geolocation) {
-    output.innerHTML += `<div class="info">❌ Geolocation not supported.</div>`;
+  // Get current location (each snap we re-read in case you moved)
+  try {
+    statusEl.textContent = "📍 Getting your location…";
+    userPos = await getLocationOnce();
+  } catch (e) {
+    statusEl.textContent = `❌ Geolocation error: ${e.message}. Make sure the site is HTTPS and location allowed.`;
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const lat = +pos.coords.latitude.toFixed(6);
-    const lon = +pos.coords.longitude.toFixed(6);
+  // Validate we have a heading
+  if (deviceHeading === null || isNaN(deviceHeading)) {
+    statusEl.textContent = "⚠️ No compass data. Tap ‘Enable Compass’, then try again.";
+    return;
+  }
 
-    // Read compass heading & tilt; if missing, fall back to a reasonable heading/distance
-    const heading = deviceHeading !== null ? +deviceHeading : 90; // default East
-    const distanceKm = estimateDistanceKm(tiltAngle);            // 10–80 km typical
+  // Estimate distance based on tilt (or default)
+  const distanceKm = estimateDistanceKm(tiltBeta);
+  const bearing = Number(deviceHeading) % 360;
 
-    // Project the cloud position out in the heading direction
-    const projected = projectPoint(lat, lon, heading, distanceKm);
+  // Project the cloud location from your spot
+  const cloud = projectPoint(userPos.lat, userPos.lon, bearing, distanceKm);
 
-    // Reverse-geocode that projected point to get nearest city/town
-    let placeName = "unknown place";
-    try {
-      const rev = await reverseGeocode(projected.lat, projected.lon);
-      placeName = formatPlaceName(rev.address);
-    } catch (err) {
-      // If reverse geocode fails, we still show the point
-      console.warn(err);
-    }
-
-    // Human-readable summary
-    const headingLabel = `${Math.round(heading)}°`;
-    output.innerHTML += `
-      <div class="info">📍 You: ${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
-      <div class="info">🧭 Heading: ${headingLabel}${tiltAngle !== null ? ` | 📐 Tilt: ${tiltAngle}°` : ""}</div>
-      <div class="info"><b>☁️ Estimated cloud is above:</b> ${placeName}</div>
-      <div class="muted">(~${distanceKm} km in that direction from you)</div>
-    `;
-
-    // Draw map with red radius at projected point
-    drawOnMap({ lat, lon }, { lat: projected.lat, lon: projected.lon }, placeName);
-  }, (err) => {
-    output.innerHTML += `<div class="info">❌ GPS error: ${err.message}</div>`;
-  }, { enableHighAccuracy: true, timeout: 15000 });
+  // Update UI + map
+  statusEl.innerHTML = `
+    ✅ Photo captured<br>
+    🧭 Heading: ${Math.round(bearing)}° ${bearingToText(bearing)} &nbsp; | &nbsp; 📐 Tilt: ${tiltBeta !== null ? Math.round(tiltBeta) + "°" : "n/a"}<br>
+    📍 You: ${userPos.lat.toFixed(4)}, ${userPos.lon.toFixed(4)}<br>
+    ☁️ Cloud est.: ${cloud.lat.toFixed(4)}, ${cloud.lon.toFixed(4)} (~${distanceKm} km away)
+  `;
+  showCloudOnMap(cloud.lat, cloud.lon);
 });
+
+// Small helper to convert bearing to a compass label
+function bearingToText(b) {
+  const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
+                "S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
+  return dirs[Math.round(b / 22.5)];
+}
