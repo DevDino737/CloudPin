@@ -3,83 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloud Snap</title>
+  <title>Cloud Spotter</title>
   <link rel="stylesheet" href="MainClouds.css">
 
-  <!-- Leaflet map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 </head>
 <body>
-  <h1 class="frosted-text">Cloud Snap</h1>
+  <h1 class="frosted-text">Cloud Spotter</h1>
 
-  <!-- Button to open camera -->
+  <!-- Cloud animation layer -->
+  <div id="cloudContainer"></div>
+
+  <!-- Snap photo button -->
   <button id="snapBtn">📸 Snap Cloud Photo</button>
+  <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none">
 
-  <!-- Camera feed -->
-  <video id="cameraFeed" autoplay playsinline></video>
-  <canvas id="photoCanvas" style="display:none;"></canvas>
-
-  <!-- Where map will go -->
+  <!-- Map -->
   <div id="map"></div>
 
-  <script>
-    const snapBtn = document.getElementById("snapBtn");
-    const video = document.getElementById("cameraFeed");
-    const canvas = document.getElementById("photoCanvas");
+  <!-- Scripts -->
+  <script src="Cloud.js"></script>
+  <script src="CloudPin.js"></script>
 
-    // Initialize map
-    const map = L.map("map").setView([39, -95], 4); // default USA
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19
-    }).addTo(map);
-
-    // Ask for camera
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-      } catch (err) {
-        alert("Camera not available: " + err.message);
-      }
-    }
-
-    // When user clicks snap
-    snapBtn.addEventListener("click", async () => {
-      // Take picture (draw video frame to canvas)
-      const ctx = canvas.getContext("2d");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
-
-      // Get location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-
-          // Zoom map to user
-          map.setView([lat, lon], 10);
-
-          // Add red circle
-          L.circle([lat, lon], {
-            color: "red",
-            fillColor: "#f03",
-            fillOpacity: 0.4,
-            radius: 10000 // 10km radius for visibility
-          }).addTo(map)
-            .bindPopup("Cloud is above this area 🌥️")
-            .openPopup();
-        }, (err) => {
-          alert("Geolocation error: " + err.message);
-        });
-      } else {
-        alert("Geolocation not supported.");
-      }
-    });
-
-    // Start camera on load
-    startCamera();
-  </script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </body>
 </html>
