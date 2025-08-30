@@ -1,32 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloud track pro</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CloudPin</title>
   <link rel="stylesheet" href="MainClouds.css">
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <!-- Leaflet CSS (no key needed) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
-  <h1 class="frosted-text">Cloud track pro</h1>
+  <div id="cloudContainer"></div> <!-- Clouds.js draws clouds here -->
 
-  <!-- Cloud animation layer -->
-  <div id="cloudContainer"></div>
+  <header>
+    <h1 class="frosted-text">CloudPin</h1>
+  </header>
 
-  <!-- Snap photo button -->
-  <button id="snapBtn">📸 Snap Cloud Photo</button>
-  <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none">
+  <main class="app">
+    <div class="controls">
+      <button id="enableSensorsBtn">Enable Compass</button>
+      <button id="snapBtn">📸 Snap Cloud Photo</button>
+      <!-- hidden native camera input (opens iOS/Android native camera UI) -->
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none;">
+    </div>
 
-  <!-- Map -->
-  <div id="map"></div>
+    <!-- Optional preview of last photo (hidden until a photo is taken) -->
+    <img id="photoPreview" alt="Last photo preview" style="display:none">
 
-  <!-- Scripts -->
-  <script src="Clouds.js"></script>
-  <script src="CloudPin.js"></script>
+    <div id="status" class="muted">Tap "Enable Compass" (iOS) then "Snap Cloud Photo". Map is hidden until you take a photo.</div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Map is hidden until first photo is processed -->
+    <div id="map" style="display:none;"></div>
+  </main>
+
+  <!-- Leaflet + script -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Your cloud animation (existing) -->
+  <script src="Clouds.js" defer></script>
+
+  <!-- Main app logic -->
+  <script src="CloudPin.js" defer></script>
 </body>
 </html>
