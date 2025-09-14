@@ -4,22 +4,8 @@
   --btn-radius: 10px;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  scroll-behavior: smooth;           /* optional smooth scrolling */
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-}
-
-body {
-  min-height: 100%;   /* allows body to grow beyond viewport */
-  overflow-y: auto;   /* enables vertical scrolling */
-}
-
+* { box-sizing: border-box; }
+html,body { height:100%; margin:0; padding:0; }
 
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
@@ -122,5 +108,3 @@ button:active { transform: translateY(1px); }
   #map { height: 52vh; width: 96%; }
   button { padding: 10px 12px; font-size: 15px; }
 }
-
-
