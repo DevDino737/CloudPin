@@ -1,19 +1,16 @@
-/* Sky background and layout */
-:root{
-  --btn-bg: rgba(255,255,255,0.32);
-  --btn-radius: 10px;
-}
-
-* { box-sizing: border-box; }
-html,body { height:100%; margin:0; padding:0; }
-
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background: linear-gradient(to bottom, #87CEEB 0%, #ffffff 70%);
-  color:#122;
-  -webkit-font-smoothing:antialiased;
+  background: linear-gradient(to bottom, #87CEEB 0%, #ffffff 100%);
+  background-attachment: fixed; /* makes sure it scales with screen */
+  background-repeat: no-repeat;
+  background-size: cover;       /* stretch to fill */
+  margin: 0;
+  height: 100vh;
   overflow: hidden;
+  color: #122;
+  -webkit-font-smoothing: antialiased;
 }
+
 
 /* Clouds behind everything */
 #cloudContainer {
