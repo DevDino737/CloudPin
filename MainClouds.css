@@ -1,27 +1,18 @@
 /* Sky background and layout */
-:root {
+:root{
   --btn-bg: rgba(255,255,255,0.32);
   --btn-radius: 10px;
 }
 
-* { 
-  box-sizing: border-box; 
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
-  scroll-behavior: smooth;           /* optional smooth scrolling */
-}
+* { box-sizing: border-box; }
+html,body { height:100%; margin:0; padding:0; }
 
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   background: linear-gradient(to bottom, #87CEEB 0%, #ffffff 70%);
-  color: #122;
-  -webkit-font-smoothing: antialiased;
-  overflow-y: auto; /* changed from hidden to auto */
-  min-height: 100%; /* ensures body grows beyond viewport */
+  color:#122;
+  -webkit-font-smoothing:antialiased;
+  overflow: hidden;
 }
 
 /* Clouds behind everything */
