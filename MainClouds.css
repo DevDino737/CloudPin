@@ -6,9 +6,9 @@ body {
   background-size: cover;       /* stretch to fill */
   margin: 0;
   height: 100vh;
-  overflow: hidden;
   color: #122;
   -webkit-font-smoothing: antialiased;
+  overflow: auto; /* allows scrolling */
 }
 
 
