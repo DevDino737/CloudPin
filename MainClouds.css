@@ -128,3 +128,17 @@ button:active { transform: translateY(1px); }
   #map { height: 52vh; width: 96%; }
   button { padding: 10px 12px; font-size: 15px; }
 }
+
+.cloud {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  filter: blur(8px);
+  opacity: 0.8;
+  animation: float linear infinite;
+}
+
+@keyframes float {
+  from { transform: translateX(-200px); }
+  to   { transform: translateX(200vw); }
+}

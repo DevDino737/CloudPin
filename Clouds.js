@@ -106,3 +106,24 @@ window.addEventListener('resize', () => {
 // start
 initClouds();
 requestAnimationFrame(animateClouds);
+
+
+function makeCloud() {
+    const c = document.createElement("div");
+    c.className = "cloud";
+  
+    const size = 80 + Math.random() * 100;
+    c.style.width = size + "px";
+    c.style.height = (size * (0.7 + Math.random()*0.4)) + "px";
+  
+    c.style.top = Math.random() * 60 + "vh";
+    c.style.animationDuration = (20 + Math.random() * 20) + "s";
+    c.style.zIndex = -1; // behind everything
+  
+    document.body.appendChild(c);
+  
+    setTimeout(() => c.remove(), 30000);
+  }
+  
+  setInterval(makeCloud, 1500);
+  
