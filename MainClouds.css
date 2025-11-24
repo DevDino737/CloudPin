@@ -21,7 +21,7 @@ body {
   overflow: auto;
 }
 
-/* Clouds behind everything */
+/* Sky container where clouds live */
 #cloudContainer {
   position: fixed;
   inset: 0;
@@ -29,7 +29,6 @@ body {
   pointer-events: none;
   overflow: hidden;
 }
-
 /* cloud element style (soft, non-image) */
 .cloud {
   position: absolute;
@@ -141,4 +140,13 @@ button:active { transform: translateY(1px); }
 @keyframes float {
   from { transform: translateX(-200px); }
   to   { transform: translateX(200vw); }
+}
+
+
+/* Each blob inside a cloud */
+.cloud-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.85);
+  filter: blur(8px);
 }

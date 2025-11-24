@@ -1,129 +1,92 @@
-// Clouds.js - create DOM cloud elements that drift forever (top -> right, bottom -> left)
-// Clouds are non-image, soft shapes. They are placed behind UI and recycled smoothly.
+const cloudContainer = document.getElementById("cloudContainer");
 
-const cloudContainer = document.getElementById('cloudContainer');
+/**
+ * Create a cloud made up of multiple blurred blobs
+ */
+function createCloud(yPos, layer) {
+    const cloud = document.createElement("div");
+    cloud.style.position = "absolute";
+    cloud.style.top = yPos + "px";
+    cloud.style.left = Math.random() * window.innerWidth + "px";
+    cloud.dataset.layer = layer;
 
-// settings
-const TOP_COUNT = 4;      // number of clouds in top band
-const BOTTOM_COUNT = 4;   // number of clouds in bottom band
-const MIN_W = 90;
-const MAX_W = 220;
-const MIN_SPEED = 0.08;   // px per frame multiplier (slow)
-const MAX_SPEED = 0.5;
+    const blobCount = 3 + Math.floor(Math.random() * 4); // 3–6 blobs
 
-// store clouds as objects
-const topClouds = [];
-const bottomClouds = [];
+    for (let i = 0; i < blobCount; i++) {
+        const blob = document.createElement("div");
+        blob.classList.add("cloud-blob");
 
-// helper random
-const rnd = (min, max) => Math.random() * (max - min) + min;
+        // random size (more organic)
+        const size = 40 + Math.random() * 80;
+        blob.style.width = size + "px";
+        blob.style.height = size + "px";
 
-// create one cloud DOM and object
-function spawnCloud(isTop) {
-  const el = document.createElement('div');
-  el.className = 'cloud';
+        // random position within the cloud
+        blob.style.left = (Math.random() * 80) + "px";
+        blob.style.top = (Math.random() * 40) + "px";
 
-  const w = Math.round(rnd(MIN_W, MAX_W));
-  const h = Math.round(w * (rnd(0.45, 0.7)));
+        cloud.appendChild(blob);
+    }
 
-  el.style.width = w + 'px';
-  el.style.height = h + 'px';
-
-  // random vertical position depending on top/bottom band
-  const bandHeight = window.innerHeight * 0.35; // 35% each band
-  let top;
-  if (isTop) {
-    top = rnd(16, 36); // percent
-  } else {
-    top = rnd(60, 86); // percent
-  }
-  el.style.top = top + '%';
-
-  // initial horizontal position: spread across a wide range so they don't sync
-  const startX = rnd(-window.innerWidth * 0.8, window.innerWidth * 1.6);
-  el.style.left = startX + 'px';
-
-  // speed and direction
-  const baseSpeed = rnd(MIN_SPEED, MAX_SPEED);
-  const dir = isTop ? 1 : -1; // top -> move right (positive), bottom -> move left (negative)
-  el.dataset.speed = (baseSpeed * dir).toString();
-
-  cloudContainer.appendChild(el);
-
-  return { el, speed: baseSpeed * dir, w, h, topPercent: top };
+    cloudContainer.appendChild(cloud);
+    return cloud;
 }
 
-// initialize clouds
-function initClouds() {
-  // clear containers in case of re-init
-  topClouds.length = 0;
-  bottomClouds.length = 0;
-  cloudContainer.innerHTML = '';
+/**
+ * Move the cloud and respawn when moving offscreen
+ */
+function moveCloud(cloud, speed) {
+    let newLeft = cloud.offsetLeft + speed;
 
-  for (let i = 0; i < TOP_COUNT; i++) {
-    topClouds.push(spawnCloud(true));
-  }
-  for (let i = 0; i < BOTTOM_COUNT; i++) {
-    bottomClouds.push(spawnCloud(false));
-  }
+    if (newLeft > window.innerWidth + 200) {
+        // Off the right, respawn left
+        newLeft = -300;
+        cloud.style.top = Math.random() * window.innerHeight + "px";
+    } 
+    else if (newLeft < -300) {
+        // Off the left, respawn right
+        newLeft = window.innerWidth + 200;
+        cloud.style.top = Math.random() * window.innerHeight + "px";
+    }
+
+    cloud.style.left = newLeft + "px";
 }
 
-// animation loop
+/**
+ * CREATE CLOUDS
+ */
+
+// Top layer clouds (moving right)
+let topClouds = [];
+for (let i = 0; i < 3; i++) {
+    topClouds.push(
+        createCloud(
+            Math.random() * (window.innerHeight * 0.4),
+            "top"
+        )
+    );
+}
+
+// Bottom layer clouds (moving left)
+let bottomClouds = [];
+for (let i = 0; i < 3; i++) {
+    bottomClouds.push(
+        createCloud(
+            Math.random() * (window.innerHeight * 0.4) + window.innerHeight * 0.4,
+            "bottom"
+        )
+    );
+}
+
+/**
+ * Animate clouds every frame
+ */
 function animateClouds() {
-  // helper to update each cloud
-  function stepList(list) {
-    list.forEach(obj => {
-      const el = obj.el;
-      let curLeft = parseFloat(el.style.left) || 0;
-      curLeft += obj.speed * (1 + Math.random() * 0.5); // small variance per frame
+    // movement slowed for better realism
+    topClouds.forEach(cloud => moveCloud(cloud, 0.08));   // very slow drift right
+    bottomClouds.forEach(cloud => moveCloud(cloud, -0.06)); // very slow drift left
 
-      // recycle when offscreen with smooth reset
-      if (obj.speed > 0 && curLeft > window.innerWidth + 300) {
-        // moved off right, move to left offscreen
-        curLeft = - (obj.w + rnd(80, 300));
-        // slightly change vertical percent for variety
-        el.style.top = (rnd(12, 40)) + '%';
-      } else if (obj.speed < 0 && curLeft < - (obj.w + 300)) {
-        // moved off left, move to right offscreen
-        curLeft = window.innerWidth + rnd(80, 300);
-        el.style.top = (rnd(60, 92)) + '%';
-      }
-      el.style.left = curLeft + 'px';
-    });
-  }
-
-  stepList(topClouds);
-  stepList(bottomClouds);
-  requestAnimationFrame(animateClouds);
+    requestAnimationFrame(animateClouds);
 }
 
-// responsive: rebuild clouds on resize so positions & sizes recalculated
-window.addEventListener('resize', () => {
-  // recreate so sizes/positions are sensible
-  initClouds();
-});
-
-// start
-initClouds();
-requestAnimationFrame(animateClouds);
-
-
-function makeCloud() {
-    const c = document.createElement("div");
-    c.className = "cloud";
-  
-    const size = 80 + Math.random() * 100;
-    c.style.width = size + "px";
-    c.style.height = (size * (0.7 + Math.random()*0.4)) + "px";
-  
-    c.style.top = Math.random() * 60 + "vh";
-    c.style.animationDuration = (20 + Math.random() * 20) + "s";
-    c.style.zIndex = -1; // behind everything
-  
-    document.body.appendChild(c);
-  
-    setTimeout(() => c.remove(), 30000);
-  }
-  
-  setInterval(makeCloud, 1500);
-  
+animateClouds();
