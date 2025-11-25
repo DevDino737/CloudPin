@@ -83,8 +83,8 @@ for (let i = 0; i < 3; i++) {
  */
 function animateClouds() {
     // movement slowed for better realism
-    topClouds.forEach(cloud => moveCloud(cloud, 0.5));   // very slow drift right
-    bottomClouds.forEach(cloud => moveCloud(cloud, -0.25)); // very slow drift left
+    topClouds.forEach(cloud => moveCloud(cloud, 0.15));   // very slow drift right
+    bottomClouds.forEach(cloud => moveCloud(cloud, -0.10)); // very slow drift left
 
     requestAnimationFrame(animateClouds);
 }
