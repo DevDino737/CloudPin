@@ -1,10 +1,9 @@
-/* MainClouds.css - Sky + UI styles (updated) */
-
 :root{
   --btn-bg: rgba(255,255,255,0.32);
   --btn-radius: 10px;
 }
 
+/* reset & base */
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; padding:0; }
 
@@ -21,23 +20,46 @@ body {
   overflow: auto;
 }
 
-/* Sky container where clouds live */
+/* Clouds behind everything */
 #cloudContainer {
   position: fixed;
-  inset: 0;
-  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1; /* behind UI */
   pointer-events: none;
   overflow: hidden;
 }
-/* cloud element style (soft, non-image) */
+
+/* A main cloud element (container for many blobs) */
 .cloud {
   position: absolute;
-  background: radial-gradient(ellipse at center, rgba(255,255,255,0.95) 45%, rgba(255,255,255,0.85) 60%, rgba(255,255,255,0.65) 72%, rgba(255,255,255,0.0) 100%);
-  border-radius: 50%;
-  filter: blur(6px);
-  opacity: 0.9;
   pointer-events: none;
+  /* no fixed width/height here — children blobs define shape */
+}
+
+/* main blob style (used by JS-created blobs) */
+.cloud-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  filter: blur(8px);
+  opacity: 0.95;
   will-change: transform, left, top;
+}
+
+/* small extra piece when creating a cloud (for variation) */
+.cloud-extra {
+  position: absolute;
+  background: rgba(255,255,255,0.9);
+  width: 60%;
+  height: 50%;
+  border-radius: 50%;
+  top: -20%;
+  left: 20%;
+  opacity: 0.85;
+  filter: blur(6px);
 }
 
 /* Header / title */
@@ -126,27 +148,4 @@ button:active { transform: translateY(1px); }
   .frosted-text { font-size: 26px; }
   #map { height: 52vh; width: 96%; }
   button { padding: 10px 12px; font-size: 15px; }
-}
-
-.cloud {
-  position: absolute;
-  background: #fff;
-  border-radius: 50%;
-  filter: blur(8px);
-  opacity: 0.8;
-  animation: float linear infinite;
-}
-
-@keyframes float {
-  from { transform: translateX(-200px); }
-  to   { transform: translateX(200vw); }
-}
-
-
-/* Each blob inside a cloud */
-.cloud-blob {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.85);
-  filter: blur(8px);
 }

@@ -7,9 +7,6 @@
   <link rel="stylesheet" href="MainClouds.css">
   <!-- Leaflet CSS (no key needed) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
   <div id="cloudContainer"></div> <!-- Clouds.js draws clouds here -->
@@ -38,10 +35,10 @@
   <!-- Leaflet + script -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Your cloud animation (existing) -->
-  <script src="Clouds.js" defer></script>
+  <!-- Clouds must load before CloudPin -->
+  <script src="Clouds.js"></script>
 
-  <!-- Main app logic -->
-  <script src="CloudPin.js" defer></script>
+  <!-- Main app logic (map, sensors, projection) -->
+  <script src="CloudPin.js"></script>
 </body>
 </html>

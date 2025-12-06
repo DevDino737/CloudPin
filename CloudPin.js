@@ -1,9 +1,9 @@
 /* CloudPin.js
    - native camera trigger
-   - get geolocation & device orientation
-   - project a point ahead (distance based on tilt) — DISTANCE IN MILES
-   - show Leaflet satellite map (ESRI World Imagery) and add a red radius (5 miles)
-   - each photo produces a new radius on the map
+   - get geolocation & device orientation (fixed for device rotation)
+   - project a point ahead (distance estimated by tilt) - distances shown in MILES
+   - show Leaflet satellite map and add a red radius (5 miles)
+   - each photo clears previous circle and creates a new one
 */
 
 (() => {
@@ -16,18 +16,15 @@
   const photoPrev = document.getElementById("photoPreview");
 
   // state
-  let deviceHeading = null; // degrees 0..360 (0 = north)
-  let tiltBeta = null;      // front/back tilt in degrees (beta)
+  let userHeading = null; // corrected heading used for projection
+  let tiltBeta = null;    // front/back tilt
   let leafletMap = null;
-  let circles = [];         // store circles we add (one per photo)
-  let markers = [];
 
   // helpers
   const toRad = d => d * Math.PI / 180;
   const toDeg = r => r * 180 / Math.PI;
 
   // Project a point from lat/lon by bearing (deg) and distance (KM)
-  // (kept same math, but we'll pass distanceKm computed from miles)
   function projectPoint(latDeg, lonDeg, bearingDeg, distanceKm) {
     const R = 6371.0; // Earth radius km
     const φ1 = toRad(latDeg);
@@ -49,6 +46,10 @@
     return { lat: toDeg(φ2), lon: toDeg(λ2) };
   }
 
+  // convert miles -> km and miles -> meters
+  const milesToKm = miles => miles * 1.60934;
+  const milesToMeters = miles => Math.round(miles * 1609.34);
+
   // Estimate distance in MILES using tilt (beta): more tilt (pointing up) => closer, level/horizon => farther.
   // Map beta (abs) range 0..60 to distance range 50 miles (far) .. 5 miles (near).
   function estimateDistanceMiles(beta) {
@@ -59,19 +60,28 @@
     return Math.max(3, Math.round(miles)); // ensure at least ~3 miles
   }
 
-  // convert miles -> meters
-  const milesToMeters = miles => Math.round(miles * 1609.34);
-  // convert miles -> km
-  const milesToKm = miles => miles * 1.60934;
-
-  // Convert compass degrees to human text
   function bearingToText(b) {
-    if (b == null || isNaN(b)) return "N/A";
+    if (userHeading == null || isNaN(userHeading)) return "N/A";
     const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
-    return dirs[Math.round(b / 22.5)];
+    return dirs[Math.round(userHeading / 22.5)];
   }
 
-  // Enable device orientation on iOS
+  // FIX: adjust heading for device rotation so camera direction matches compass
+  function fixHeadingForCamera(heading) {
+    const orientation = window.orientation;
+    if (orientation === 90) {
+      return (heading + 90) % 360;
+    }
+    if (orientation === -90) {
+      return (heading - 90 + 360) % 360;
+    }
+    if (orientation === 180) {
+      return (heading + 180) % 360;
+    }
+    return heading; // portrait normal
+  }
+
+  // Enable sensors button (iOS needs permission)
   enableBtn.addEventListener("click", async () => {
     try {
       if (typeof DeviceOrientationEvent !== "undefined" &&
@@ -88,15 +98,22 @@
     }
   });
 
-  // Listen for orientation (compass + tilt)
+  // Listen for device orientation (compass + tilt). Replace previous listener per your request.
   window.addEventListener("deviceorientation", (e) => {
+    let rawHeading;
     if (typeof e.webkitCompassHeading === "number") {
-      deviceHeading = e.webkitCompassHeading;
+      rawHeading = e.webkitCompassHeading; // iOS
     } else if (typeof e.alpha === "number") {
-      // alpha gives rotation around z-axis
-      deviceHeading = e.alpha;
+      rawHeading = 360 - e.alpha; // Android-ish fallback
+    } else {
+      rawHeading = null;
     }
-    tiltBeta = (typeof e.beta === "number") ? e.beta : tiltBeta;
+    if (rawHeading !== null) {
+      userHeading = fixHeadingForCamera(rawHeading);
+    }
+    if (typeof e.beta === "number") {
+      tiltBeta = e.beta;
+    }
   }, { passive: true });
 
   // initialize leaflet map (satellite tiles from ESRI)
@@ -114,9 +131,24 @@
     }
   }
 
+  // Clear previous circles (so each photo gets a fresh circle)
+  function clearPreviousCircles() {
+    if (!leafletMap) return;
+    leafletMap.eachLayer(layer => {
+      // remove only Circle or CircleMarker layers (keep base tile layer)
+      if (layer instanceof L.Circle || layer instanceof L.CircleMarker) {
+        leafletMap.removeLayer(layer);
+      }
+    });
+  }
+
   // Show map & add circle + marker for this photo
   function addCloudCircle(lat, lon, radiusMeters) {
     ensureMap(lat, lon);
+
+    // clear previous circles
+    clearPreviousCircles();
+
     const circle = L.circle([lat, lon], {
       color: "red",
       fillColor: "#f03",
@@ -124,15 +156,15 @@
       weight: 2,
       radius: radiusMeters
     }).addTo(leafletMap);
+
     const marker = L.circleMarker([lat, lon], { radius:6, color:"red", fillColor:"#f03", fillOpacity:1 }).addTo(leafletMap);
-    circles.push(circle);
-    markers.push(marker);
+
     // fit map to show marker+circle nicely
     const group = L.featureGroup([circle, marker]);
     leafletMap.fitBounds(group.getBounds().pad(0.4));
   }
 
-  // Snap button opens native camera
+  // Snap button opens native camera input
   snapBtn.addEventListener("click", () => {
     cameraIn.click();
   });
@@ -160,17 +192,18 @@
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
 
-      // warn if heading/tilt not available
-      if (deviceHeading === null || isNaN(deviceHeading)) {
+      // If heading missing warn but still proceed (use default)
+      if (userHeading === null || isNaN(userHeading)) {
         statusEl.textContent = "⚠️ Compass not available — the projected location will use a default direction (east). Tap 'Enable Compass' to improve accuracy.";
       }
 
-      // Determine projected distance (in miles) from tilt
-      const distanceMiles = estimateDistanceMiles(tiltBeta); // e.g. 5..50 miles
+      // Estimate distance using tilt (in miles)
+      const distanceMiles = estimateDistanceMiles(tiltBeta); // e.g. 3..50 miles
+      // Convert miles -> km for projection math
       const distanceKm = milesToKm(distanceMiles);
 
-      // If heading missing, use 90 (east) as fallback
-      const bearing = (deviceHeading !== null && !isNaN(deviceHeading)) ? deviceHeading : 90;
+      // If heading missing, default to 90° (east)
+      const bearing = (userHeading !== null && !isNaN(userHeading)) ? userHeading : 90;
 
       // Project point distanceKm ahead along bearing
       const projected = projectPoint(userLat, userLon, bearing, distanceKm);
@@ -182,7 +215,7 @@
       try {
         addCloudCircle(projected.lat, projected.lon, radiusMeters);
 
-        statusEl.innerHTML = `☁️ Cloud estimated ~${distanceMiles} mi away to the ${bearingToText(bearing)} (${Math.round(bearing||0)}°). Radius shown = ${radiusMiles} mi.`;
+        statusEl.innerHTML = `☁️ Cloud estimated ~${distanceMiles} mi away to the ${bearingToText() || 'N/A'} (${Math.round(bearing||0)}°). Radius shown = ${radiusMiles} mi.`;
       } catch (err) {
         statusEl.textContent = "Map error: " + err.message;
       }
@@ -195,6 +228,7 @@
   window.__cloudpin_test = async function(fakeLat = 38.6270, fakeLon = -90.1994) {
     mapDiv.style.display = "block";
     ensureMap(fakeLat, fakeLon);
+    clearPreviousCircles();
     addCloudCircle(fakeLat, fakeLon, milesToMeters(5));
     statusEl.textContent = "Test circle added at fake location (St. Louis).";
   };
