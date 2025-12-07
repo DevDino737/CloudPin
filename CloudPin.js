@@ -100,6 +100,13 @@
 
   // Listen for device orientation (compass + tilt). Replace previous listener per your request.
   window.addEventListener("deviceorientation", (e) => {
+    
+    console.log(
+      "alpha:", e.alpha,
+      "webkit:", e.webkitCompassHeading,
+      "orientation:", screen.orientation?.angle
+  );
+    
     let rawHeading;
     if (typeof e.webkitCompassHeading === "number") {
       rawHeading = e.webkitCompassHeading; // iOS
