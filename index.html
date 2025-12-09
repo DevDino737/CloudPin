@@ -11,6 +11,22 @@
   <!-- Leaflet CSS (no key needed) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
+
+<div id="debugConsole" style="
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 150px;
+    background: rgba(0,0,0,0.85);
+    color: #00ff00;
+    font-family: monospace;
+    font-size: 12px;
+    overflow-y: auto;
+    padding: 6px;
+    white-space: pre;
+    z-index: 999999;
+"></div>
 <body>
   <div id="cloudContainer"></div> <!-- Clouds.js draws clouds here -->
 
@@ -44,4 +60,14 @@
   <!-- Main app logic (map, sensors, projection) -->
   <script src="CloudPin.js"></script>
 </body>
+  <script>
+
+function debugLog(msg) {
+    const box = document.getElementById("debugConsole");
+    box.textContent += msg + "\n";
+    box.scrollTop = box.scrollHeight;
+}
+  </script>
+
+
 </html>

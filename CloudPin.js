@@ -241,3 +241,24 @@
   };
 
 })();
+
+
+window.addEventListener("deviceorientation", (e) => {
+  let rawHeading;
+
+  if (e.webkitCompassHeading !== undefined) {
+      rawHeading = e.webkitCompassHeading;
+  } else {
+      rawHeading = 360 - e.alpha;
+  }
+
+  userHeading = fixHeadingForCamera(rawHeading);
+
+  debugLog(
+      "alpha: " + e.alpha +
+      " | webkit: " + e.webkitCompassHeading +
+      " | raw: " + rawHeading +
+      " | fixed: " + userHeading +
+      " | orientation: " + (screen.orientation?.angle ?? "none")
+  );
+});
