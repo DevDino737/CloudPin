@@ -231,34 +231,64 @@
     }, { enableHighAccuracy: true, timeout: 15000 });
   });
 
-  // Test helper: call from console __cloudpin_test()
-  window.__cloudpin_test = async function(fakeLat = 38.6270, fakeLon = -90.1994) {
-    mapDiv.style.display = "block";
-    ensureMap(fakeLat, fakeLon);
-    clearPreviousCircles();
-    addCloudCircle(fakeLat, fakeLon, milesToMeters(5));
-    statusEl.textContent = "Test circle added at fake location (St. Louis).";
-  };
 
-})();
 
+  // -----------------------------
+// DEBUG PANEL
+// -----------------------------
+const debugPanel = document.createElement("div");
+debugPanel.id = "debugPanel";
+debugPanel.style.position = "absolute";
+debugPanel.style.bottom = "10px";
+debugPanel.style.left = "10px";
+debugPanel.style.color = "lime";
+debugPanel.style.fontSize = "14px";
+debugPanel.style.background = "rgba(0,0,0,0.6)";
+debugPanel.style.padding = "8px 12px";
+debugPanel.style.borderRadius = "6px";
+debugPanel.style.zIndex = "9999";
+debugPanel.style.pointerEvents = "none";
+document.body.appendChild(debugPanel);
+
+function debug(msg) {
+    debugPanel.innerHTML = msg;
+}
+
+
+
+// -----------------------------
+// COMPASS + ORIENTATION FIX
+// -----------------------------
+let userHeading = 0;
 
 window.addEventListener("deviceorientation", (e) => {
-  let rawHeading;
 
-  if (e.webkitCompassHeading !== undefined) {
-      rawHeading = e.webkitCompassHeading;
-  } else {
-      rawHeading = 360 - e.alpha;
-  }
+    let compass;
 
-  userHeading = fixHeadingForCamera(rawHeading);
+    if (e.webkitCompassHeading) {
+        // iPhone gives TRUE heading automatically
+        compass = e.webkitCompassHeading;
+    } else if (e.alpha !== null) {
+        // Android gives rotation relative to phone orientation
+        compass = 360 - e.alpha;
+    }
 
-  debugLog(
-      "alpha: " + e.alpha +
-      " | webkit: " + e.webkitCompassHeading +
-      " | raw: " + rawHeading +
-      " | fixed: " + userHeading +
-      " | orientation: " + (screen.orientation?.angle ?? "none")
-  );
+    // Apply screen/orientation angle correction
+    const orientation =
+        (screen.orientation && screen.orientation.angle)
+            ? screen.orientation.angle
+            : window.orientation || 0;
+
+    compass = (compass + orientation) % 360;
+
+    userHeading = compass;
+
+    debug(
+        `alpha: ${e.alpha}<br>
+         webkit: ${e.webkitCompassHeading}<br>
+         screen angle: ${orientation}<br>
+         corrected heading: ${userHeading.toFixed(1)}°`
+    );
 });
+
+

@@ -4,31 +4,39 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>CloudPin</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="stylesheet" href="MainClouds.css">
-  <!-- Leaflet CSS (no key needed) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-</head>
 
-<div id="debugConsole" style="
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    max-height: 150px;
-    background: rgba(0,0,0,0.85);
-    color: #00ff00;
-    font-family: monospace;
-    font-size: 12px;
-    overflow-y: auto;
-    padding: 6px;
-    white-space: pre;
-    z-index: 999999;
-"></div>
+  <link rel="stylesheet" href="MainClouds.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+</head>
 <body>
-  <div id="cloudContainer"></div> <!-- Clouds.js draws clouds here -->
+
+  <!-- DEBUG CONSOLE (correct location!) -->
+  <div id="debugConsole" style="
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      max-height: 150px;
+      background: rgba(0,0,0,0.85);
+      color: #00ff00;
+      font-family: monospace;
+      font-size: 12px;
+      overflow-y: auto;
+      padding: 6px;
+      white-space: pre;
+      z-index: 999999;
+  "></div>
+
+  <script>
+  function debugLog(msg) {
+      const box = document.getElementById("debugConsole");
+      box.textContent += msg + "\n";
+      box.scrollTop = box.scrollHeight;
+  }
+  </script>
+
+  <div id="cloudContainer"></div>
 
   <header>
     <h1 class="frosted-text">CloudPin</h1>
@@ -38,36 +46,19 @@
     <div class="controls">
       <button id="enableSensorsBtn">Enable Compass</button>
       <button id="snapBtn">📸 Snap Cloud Photo</button>
-      <!-- hidden native camera input (opens iOS/Android native camera UI) -->
       <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none;">
     </div>
 
-    <!-- Optional preview of last photo (hidden until a photo is taken) -->
     <img id="photoPreview" alt="Last photo preview" style="display:none">
 
-    <div id="status" class="muted">Tap "Enable Compass" (iOS) then "Snap Cloud Photo". Map is hidden until you take a photo.</div>
+    <div id="status" class="muted">Tap "Enable Compass" then take a photo.</div>
 
-    <!-- Map is hidden until first photo is processed -->
     <div id="map" style="display:none;"></div>
   </main>
 
-  <!-- Leaflet + script -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Clouds must load before CloudPin -->
   <script src="Clouds.js"></script>
-
-  <!-- Main app logic (map, sensors, projection) -->
   <script src="CloudPin.js"></script>
+
 </body>
-  <script>
-
-function debugLog(msg) {
-    const box = document.getElementById("debugConsole");
-    box.textContent += msg + "\n";
-    box.scrollTop = box.scrollHeight;
-}
-  </script>
-
-
 </html>
