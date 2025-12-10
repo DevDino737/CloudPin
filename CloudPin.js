@@ -1,257 +1,178 @@
-/* CloudPin.js
-   - native camera trigger
-   - get geolocation & device orientation (fixed for device rotation)
-   - project a point ahead (distance estimated by tilt) - distances shown in MILES
-   - show Leaflet satellite map and add a red radius (5 miles)
-   - each photo clears previous circle and creates a new one
-*/
+/* CloudPin.js — accurate 5-mile radius version for YOUR layout */
 
-(() => {
-  // DOM
-  const enableBtn = document.getElementById("enableSensorsBtn");
-  const snapBtn   = document.getElementById("snapBtn");
-  const cameraIn  = document.getElementById("cameraInput");
-  const mapDiv    = document.getElementById("map");
-  const statusEl  = document.getElementById("status");
-  const photoPrev = document.getElementById("photoPreview");
+let pitch = 0;
+let heading = 0;
+let lat = null, lng = null;
+let tiltSamples = [];
+let map, circleLayer, userMarker;
 
-  // state
-  let userHeading = null; // corrected heading used for projection
-  let tiltBeta = null;    // front/back tilt
-  let leafletMap = null;
+// UI
+const enableBtn = document.getElementById("enableSensorsBtn");
+const snapBtn = document.getElementById("snapBtn");
+const cameraInput = document.getElementById("cameraInput");
+const preview = document.getElementById("photoPreview");
+const statusBox = document.getElementById("status");
 
-  // helpers
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
+// Debug
+function debug(msg) {
+    const box = document.getElementById("debugConsole");
+    box.textContent += msg + "\n";
+    box.scrollTop = box.scrollHeight;
+}
 
-  // Project a point from lat/lon by bearing (deg) and distance (KM)
-  function projectPoint(latDeg, lonDeg, bearingDeg, distanceKm) {
-    const R = 6371.0; // Earth radius km
-    const φ1 = toRad(latDeg);
-    const λ1 = toRad(lonDeg);
-    const θ = toRad(bearingDeg);
-    const δ = distanceKm / R;
+// ---------------------------
+// INIT MAP (hidden until photo)
+// ---------------------------
+function initMap() {
+    if (map) return;
 
-    const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
-    const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
-    const sinθ = Math.sin(θ), cosθ = Math.cos(θ);
+    document.getElementById("map").style.display = "block";
 
-    const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * cosθ;
-    const φ2 = Math.asin(sinφ2);
+    map = L.map("map").setView([38.627, -90.199], 12);
 
-    const y = sinθ * sinδ * cosφ1;
-    const x = cosδ - sinφ1 * sinφ2;
-    const λ2 = λ1 + Math.atan2(y, x);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+    }).addTo(map);
+}
 
-    return { lat: toDeg(φ2), lon: toDeg(λ2) };
-  }
-
-  // convert miles -> km and miles -> meters
-  const milesToKm = miles => miles * 1.60934;
-  const milesToMeters = miles => Math.round(miles * 1609.34);
-
-  // Estimate distance in MILES using tilt (beta)
-  function estimateDistanceMiles(beta) {
-    if (beta === null || isNaN(beta)) return 10; 
-    const absB = Math.min(60, Math.abs(beta));
-
-    const miles = 50 - ((absB / 60) * (50 - 5));
-
-    return Math.max(3, Math.round(miles));
-  }
-
-  function bearingToText() {
-    if (userHeading == null || isNaN(userHeading)) return "N/A";
-    const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
-                  "S","SSW","SW","WSW","W","WNW","NW","NNW","N"];
-    return dirs[Math.round(userHeading / 22.5)];
-  }
-
-  // Enable sensors (iOS)
-  enableBtn.addEventListener("click", async () => {
+// ---------------------------
+// PERMISSIONS
+// ---------------------------
+enableBtn.onclick = async () => {
     try {
-      if (typeof DeviceOrientationEvent !== "undefined" &&
-          typeof DeviceOrientationEvent.requestPermission === "function") {
-        const resp = await DeviceOrientationEvent.requestPermission();
-        if (resp !== "granted") {
-          statusEl.textContent = "Compass permission denied.";
-          return;
+        if (DeviceOrientationEvent?.requestPermission) {
+            const res = await DeviceOrientationEvent.requestPermission();
+            if (res !== "granted") {
+                alert("Compass permission denied");
+                return;
+            }
         }
-      }
-      statusEl.textContent = "Compass enabled. Now tap 'Snap Cloud Photo'.";
+        startOrientationTracking();
+        startGPS();
+        statusBox.textContent = "Compass + GPS active. Take a photo.";
     } catch (err) {
-      statusEl.textContent = `Compass enable failed: ${err.message}`;
+        debug("Permission error: " + err);
     }
-  });
+};
 
-  // initialize leaflet map
-  function ensureMap(lat, lon) {
-    if (!leafletMap) {
-      leafletMap = L.map(mapDiv, { zoomControl: true });
+// ---------------------------
+// ORIENTATION
+// ---------------------------
+function startOrientationTracking() {
+    window.addEventListener("deviceorientation", (e) => {
+        if (e.beta == null || e.alpha == null) return;
 
-      L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
-        {
-          maxZoom: 19,
-          attribution: 'Tiles © Esri & OpenStreetMap contributors'
-        }
-      ).addTo(leafletMap);
-    }
+        pitch = smoothTilt(e.beta);   // front/back tilt
+        heading = e.alpha;            // compass heading
 
-    if (lat != null && lon != null) {
-      leafletMap.setView([lat, lon], 10);
-    }
-  }
-
-  function clearPreviousCircles() {
-    if (!leafletMap) return;
-    leafletMap.eachLayer(layer => {
-      if (layer instanceof L.Circle || layer instanceof L.CircleMarker) {
-        leafletMap.removeLayer(layer);
-      }
+        debug(`pitch: ${pitch.toFixed(1)}°, heading: ${heading.toFixed(1)}°`);
     });
-  }
+}
 
-  function addCloudCircle(lat, lon, radiusMeters) {
-    ensureMap(lat, lon);
-    clearPreviousCircles();
+function smoothTilt(v) {
+    tiltSamples.push(v);
+    if (tiltSamples.length > 10) tiltSamples.shift();
+    return tiltSamples.reduce((a, b) => a + b, 0) / tiltSamples.length;
+}
 
-    const circle = L.circle([lat, lon], {
-      color: "red",
-      fillColor: "#f03",
-      fillOpacity: 0.25,
-      weight: 2,
-      radius: radiusMeters
-    }).addTo(leafletMap);
+// ---------------------------
+// GPS
+// ---------------------------
+function startGPS() {
+    navigator.geolocation.watchPosition((pos) => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
 
-    const marker = L.circleMarker([lat, lon], {
-      radius: 6,
-      color: "red",
-      fillColor: "#f03",
-      fillOpacity: 1
-    }).addTo(leafletMap);
+        if (!map) return;
+        if (!userMarker) {
+            userMarker = L.marker([lat, lng]).addTo(map);
+        } else {
+            userMarker.setLatLng([lat, lng]);
+        }
+    });
+}
 
-    const group = L.featureGroup([circle, marker]);
-    leafletMap.fitBounds(group.getBounds().pad(0.4));
-  }
+// ---------------------------
+// TAKE PHOTO
+// ---------------------------
+snapBtn.onclick = () => {
+    cameraInput.click();
+};
 
-  // Snap camera
-  snapBtn.addEventListener("click", () => {
-    cameraIn.click();
-  });
-
-  // Handle camera file
-  cameraIn.addEventListener("change", async (ev) => {
-    const file = ev.target.files?.[0];
+cameraInput.onchange = () => {
+    const file = cameraInput.files[0];
     if (!file) return;
 
-    try {
-      const url = URL.createObjectURL(file);
-      photoPrev.src = url;
-      photoPrev.style.display = "block";
-    } catch (e) {}
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
 
-    statusEl.textContent = "📍 Locating...";
+    initMap();
+    calculateCloudPoint();
+};
 
-    if (!navigator.geolocation) {
-      statusEl.textContent = "❌ Geolocation not supported.";
-      return;
+// ---------------------------
+// CLOUD POINT MATH
+// ---------------------------
+function calculateCloudPoint() {
+    if (!lat || !pitch) {
+        alert("Still getting GPS or tilt… try again.");
+        return;
     }
 
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const userLat = pos.coords.latitude;
-      const userLon = pos.coords.longitude;
+    // Choose a reasonable cloud height
+    const cloudHeightFt = 12000; 
+    const cloudMiles = cloudHeightFt / 5280;
 
-      if (userHeading === null || isNaN(userHeading)) {
-        statusEl.textContent =
-          "⚠️ Compass not available — defaulting to east (90°).";
-      }
+    const pitchRad = (pitch * Math.PI) / 180;
 
-      const distanceMiles = estimateDistanceMiles(tiltBeta);
-      const distanceKm = milesToKm(distanceMiles);
+    // distance ahead based on tilt
+    const distanceMiles = cloudMiles / Math.tan(pitchRad);
 
-      const bearing = (!isNaN(userHeading)) ? userHeading : 90;
+    debug(`distance ahead: ${distanceMiles.toFixed(2)} miles`);
 
-      const projected = projectPoint(userLat, userLon, bearing, distanceKm);
+    // project using Haversine
+    const point = movePoint(lat, lng, distanceMiles, heading);
 
-      mapDiv.style.display = "block";
+    debug(`projected: ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
 
-      const radiusMiles = 5;
-      const radiusMeters = milesToMeters(radiusMiles);
+    // clear old circle
+    if (circleLayer) map.removeLayer(circleLayer);
 
-      try {
-        addCloudCircle(projected.lat, projected.lon, radiusMeters);
+    circleLayer = L.circle([point.lat, point.lng], {
+        radius: 8046.72, // 5 miles in meters
+        color: "red",
+        fillOpacity: 0.25,
+    }).addTo(map);
 
-        statusEl.innerHTML =
-          `☁️ Cloud estimated ~${distanceMiles} mi away ` +
-          `to the ${bearingToText()} (${Math.round(bearing)}°). ` +
-          `Radius shown = ${radiusMiles} mi.`;
-      } catch (err) {
-        statusEl.textContent = "Map error: " + err.message;
-      }
+    map.setView([point.lat, point.lng], 12);
 
-    }, (err) => {
-      statusEl.textContent =
-        `❌ GPS error: ${err.message}. Make sure location is allowed and HTTPS is used.`;
-    }, { enableHighAccuracy: true, timeout: 15000 });
-  });
+    statusBox.textContent = "Cloud marked on map!";
+}
 
+// ---------------------------
+// HAVERSINE PROJECTION
+// ---------------------------
+function movePoint(lat, lng, distMiles, bearingDeg) {
+    const R = 3958.8; // earth radius (miles)
+    const br = (bearingDeg * Math.PI) / 180;
 
+    const lat1 = (lat * Math.PI) / 180;
+    const lng1 = (lng * Math.PI) / 180;
 
-  // -----------------------------
-  // DEBUG PANEL
-  // -----------------------------
-  const debugPanel = document.createElement("div");
-  debugPanel.id = "debugPanel";
-  debugPanel.style.position = "absolute";
-  debugPanel.style.bottom = "10px";
-  debugPanel.style.left = "10px";
-  debugPanel.style.color = "lime";
-  debugPanel.style.fontSize = "14px";
-  debugPanel.style.background = "rgba(0,0,0,0.6)";
-  debugPanel.style.padding = "8px 12px";
-  debugPanel.style.borderRadius = "6px";
-  debugPanel.style.zIndex = "9999";
-  debugPanel.style.pointerEvents = "none";
-  document.body.appendChild(debugPanel);
+    const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(distMiles / R) +
+        Math.cos(lat1) * Math.sin(distMiles / R) * Math.cos(br)
+    );
 
-  function debug(msg) {
-      debugPanel.innerHTML = msg;
-  }
+    const lng2 =
+        lng1 +
+        Math.atan2(
+            Math.sin(br) * Math.sin(distMiles / R) * Math.cos(lat1),
+            Math.cos(distMiles / R) - Math.sin(lat1) * Math.sin(lat2)
+        );
 
-
-  // -----------------------------
-  // FIXED COMPASS + ORIENTATION SYSTEM
-  // -----------------------------
-  window.addEventListener("deviceorientation", (e) => {
-
-      let compass = null;
-
-      if (e.webkitCompassHeading != null) {
-          compass = e.webkitCompassHeading; // iPad/iPhone true heading
-      } else if (e.alpha != null) {
-          compass = 360 - e.alpha; // Android fallback
-      }
-
-      const orientation =
-          (screen.orientation && screen.orientation.angle) ??
-          window.orientation ??
-          0;
-
-      if (compass != null) {
-        compass = (compass + orientation + 360) % 360;
-        userHeading = compass;
-      }
-
-      tiltBeta = e.beta;
-
-      debug(
-          `alpha: ${e.alpha}<br>
-           webkit: ${e.webkitCompassHeading}<br>
-           screen angle: ${orientation}<br>
-           corrected heading: ${userHeading?.toFixed(1)}°<br>
-           tilt beta: ${tiltBeta?.toFixed(1)}`
-      );
-  });
-
-})();
+    return {
+        lat: (lat2 * 180) / Math.PI,
+        lng: (lng2 * 180) / Math.PI,
+    };
+}
