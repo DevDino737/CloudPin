@@ -1,178 +1,88 @@
-/* CloudPin.js — accurate 5-mile radius version for YOUR layout */
+const estimateBtn = document.getElementById("estimateBtn");
+const cityEl = document.getElementById("city");
+const status = document.getElementById("status");
 
-let pitch = 0;
-let heading = 0;
-let lat = null, lng = null;
-let tiltSamples = [];
-let map, circleLayer, userMarker;
+let map, cloudMarker;
 
-// UI
-const enableBtn = document.getElementById("enableSensorsBtn");
-const snapBtn = document.getElementById("snapBtn");
-const cameraInput = document.getElementById("cameraInput");
-const preview = document.getElementById("photoPreview");
-const statusBox = document.getElementById("status");
+estimateBtn.onclick = () => {
+  if (!navigator.geolocation || !window.DeviceOrientationEvent) {
+    status.textContent = "Device or browser does not support sensors.";
+    return;
+  }
 
-// Debug
-function debug(msg) {
-    const box = document.getElementById("debugConsole");
-    box.textContent += msg + "\n";
-    box.scrollTop = box.scrollHeight;
-}
+  const cloudHeight = parseFloat(document.getElementById("cloudType").value);
+  const readingCount = 5;
+  const readings = [];
 
-// ---------------------------
-// INIT MAP (hidden until photo)
-// ---------------------------
-function initMap() {
-    if (map) return;
+  status.textContent = "Gathering sensor readings...";
 
-    document.getElementById("map").style.display = "block";
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat1 = pos.coords.latitude;
+    const lon1 = pos.coords.longitude;
 
-    map = L.map("map").setView([38.627, -90.199], 12);
+    const handleOrientation = (e) => {
+      const heading = e.alpha || 0;
+      const pitch = e.beta || 0;
+      readings.push({ heading, pitch });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 20,
-    }).addTo(map);
-}
-
-// ---------------------------
-// PERMISSIONS
-// ---------------------------
-enableBtn.onclick = async () => {
-    try {
-        if (DeviceOrientationEvent?.requestPermission) {
-            const res = await DeviceOrientationEvent.requestPermission();
-            if (res !== "granted") {
-                alert("Compass permission denied");
-                return;
-            }
-        }
-        startOrientationTracking();
-        startGPS();
-        statusBox.textContent = "Compass + GPS active. Take a photo.";
-    } catch (err) {
-        debug("Permission error: " + err);
-    }
-};
-
-// ---------------------------
-// ORIENTATION
-// ---------------------------
-function startOrientationTracking() {
-    window.addEventListener("deviceorientation", (e) => {
-        if (e.beta == null || e.alpha == null) return;
-
-        pitch = smoothTilt(e.beta);   // front/back tilt
-        heading = e.alpha;            // compass heading
-
-        debug(`pitch: ${pitch.toFixed(1)}°, heading: ${heading.toFixed(1)}°`);
-    });
-}
-
-function smoothTilt(v) {
-    tiltSamples.push(v);
-    if (tiltSamples.length > 10) tiltSamples.shift();
-    return tiltSamples.reduce((a, b) => a + b, 0) / tiltSamples.length;
-}
-
-// ---------------------------
-// GPS
-// ---------------------------
-function startGPS() {
-    navigator.geolocation.watchPosition((pos) => {
-        lat = pos.coords.latitude;
-        lng = pos.coords.longitude;
-
-        if (!map) return;
-        if (!userMarker) {
-            userMarker = L.marker([lat, lng]).addTo(map);
-        } else {
-            userMarker.setLatLng([lat, lng]);
-        }
-    });
-}
-
-// ---------------------------
-// TAKE PHOTO
-// ---------------------------
-snapBtn.onclick = () => {
-    cameraInput.click();
-};
-
-cameraInput.onchange = () => {
-    const file = cameraInput.files[0];
-    if (!file) return;
-
-    preview.src = URL.createObjectURL(file);
-    preview.style.display = "block";
-
-    initMap();
-    calculateCloudPoint();
-};
-
-// ---------------------------
-// CLOUD POINT MATH
-// ---------------------------
-function calculateCloudPoint() {
-    if (!lat || !pitch) {
-        alert("Still getting GPS or tilt… try again.");
-        return;
-    }
-
-    // Choose a reasonable cloud height
-    const cloudHeightFt = 12000; 
-    const cloudMiles = cloudHeightFt / 5280;
-
-    const pitchRad = (pitch * Math.PI) / 180;
-
-    // distance ahead based on tilt
-    const distanceMiles = cloudMiles / Math.tan(pitchRad);
-
-    debug(`distance ahead: ${distanceMiles.toFixed(2)} miles`);
-
-    // project using Haversine
-    const point = movePoint(lat, lng, distanceMiles, heading);
-
-    debug(`projected: ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`);
-
-    // clear old circle
-    if (circleLayer) map.removeLayer(circleLayer);
-
-    circleLayer = L.circle([point.lat, point.lng], {
-        radius: 8046.72, // 5 miles in meters
-        color: "red",
-        fillOpacity: 0.25,
-    }).addTo(map);
-
-    map.setView([point.lat, point.lng], 12);
-
-    statusBox.textContent = "Cloud marked on map!";
-}
-
-// ---------------------------
-// HAVERSINE PROJECTION
-// ---------------------------
-function movePoint(lat, lng, distMiles, bearingDeg) {
-    const R = 3958.8; // earth radius (miles)
-    const br = (bearingDeg * Math.PI) / 180;
-
-    const lat1 = (lat * Math.PI) / 180;
-    const lng1 = (lng * Math.PI) / 180;
-
-    const lat2 = Math.asin(
-        Math.sin(lat1) * Math.cos(distMiles / R) +
-        Math.cos(lat1) * Math.sin(distMiles / R) * Math.cos(br)
-    );
-
-    const lng2 =
-        lng1 +
-        Math.atan2(
-            Math.sin(br) * Math.sin(distMiles / R) * Math.cos(lat1),
-            Math.cos(distMiles / R) - Math.sin(lat1) * Math.sin(lat2)
-        );
-
-    return {
-        lat: (lat2 * 180) / Math.PI,
-        lng: (lng2 * 180) / Math.PI,
+      if (readings.length >= readingCount) {
+        window.removeEventListener("deviceorientation", handleOrientation);
+        processReadings(lat1, lon1, cloudHeight, readings);
+      }
     };
+
+    window.addEventListener("deviceorientation", handleOrientation);
+  });
+};
+
+async function processReadings(lat1, lon1, cloudHeight, readings) {
+  const R = 3958.8; // Earth radius in miles
+  let latSum = 0;
+  let lonSum = 0;
+
+  readings.forEach((r) => {
+    const headingRad = (r.heading * Math.PI) / 180;
+    const pitchRad = (r.pitch * Math.PI) / 180;
+    const distanceMiles = cloudHeight / Math.tan(pitchRad);
+
+    const latRad = (lat1 * Math.PI) / 180;
+
+    const lat2 = lat1 + (distanceMiles / R) * (180 / Math.PI) * Math.cos(headingRad);
+    const lon2 = lon1 + (distanceMiles / R) * (180 / Math.PI) * Math.sin(headingRad) / Math.cos(latRad);
+
+    latSum += lat2;
+    lonSum += lon2;
+  });
+
+  const avgLat = latSum / readings.length;
+  const avgLon = lonSum / readings.length;
+
+  status.textContent = `Estimated cloud coordinates: ${avgLat.toFixed(4)}, ${avgLon.toFixed(4)}`;
+
+  // --- Reverse geocode ---
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${avgLat}&lon=${avgLon}&format=json`);
+    const data = await res.json();
+    const city = data.address.city || data.address.town || data.address.village || data.address.county || "Unknown";
+    cityEl.textContent = `Cloud is over: ${city}`;
+  } catch (err) {
+    cityEl.textContent = `Reverse geocode failed: ${err}`;
+  }
+
+  // --- Show map ---
+  if (!map) {
+    map = L.map('map').setView([avgLat, avgLon], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+  } else {
+    map.setView([avgLat, avgLon], 10);
+    if (cloudMarker) map.removeLayer(cloudMarker);
+  }
+
+  cloudMarker = L.marker([avgLat, avgLon]).addTo(map)
+    .bindPopup(`Cloud over: ${city}`)
+    .openPopup();
+
+  document.getElementById("map").style.display = "block";
 }
