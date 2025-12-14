@@ -1,88 +1,160 @@
-const estimateBtn = document.getElementById("estimateBtn");
+// ===============================
+// CloudPin Phase 1 (MERGED)
+// ===============================
+
+let heading = null;
+let pitch = null;
+let map = null;
+let cloudMarker = null;
+
+const statusEl = document.getElementById("status");
 const cityEl = document.getElementById("city");
-const status = document.getElementById("status");
+const enableBtn = document.getElementById("enableSensorsBtn");
+const estimateBtn = document.getElementById("estimateBtn");
 
-let map, cloudMarker;
+// -------------------------------
+// Enable Compass / Sensors
+// -------------------------------
+enableBtn.addEventListener("click", async () => {
+  // iOS permission handling
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== "granted") {
+        statusEl.textContent = "Compass permission denied.";
+        return;
+      }
+    } catch (err) {
+      statusEl.textContent = "Compass permission error.";
+      return;
+    }
+  }
 
-estimateBtn.onclick = () => {
-  if (!navigator.geolocation || !window.DeviceOrientationEvent) {
-    status.textContent = "Device or browser does not support sensors.";
+  window.addEventListener("deviceorientation", (e) => {
+    if (e.alpha !== null) heading = e.alpha;
+    if (e.beta !== null) pitch = e.beta;
+  });
+
+  statusEl.textContent = "Compass enabled. Point phone at a cloud.";
+});
+
+// -------------------------------
+// Estimate Cloud Location
+// -------------------------------
+estimateBtn.addEventListener("click", () => {
+  if (heading === null || pitch === null) {
+    statusEl.textContent = "Move phone so compass & tilt update.";
     return;
   }
 
-  const cloudHeight = parseFloat(document.getElementById("cloudType").value);
-  const readingCount = 5;
-  const readings = [];
-
-  status.textContent = "Gathering sensor readings...";
-
-  navigator.geolocation.getCurrentPosition((pos) => {
-    const lat1 = pos.coords.latitude;
-    const lon1 = pos.coords.longitude;
-
-    const handleOrientation = (e) => {
-      const heading = e.alpha || 0;
-      const pitch = e.beta || 0;
-      readings.push({ heading, pitch });
-
-      if (readings.length >= readingCount) {
-        window.removeEventListener("deviceorientation", handleOrientation);
-        processReadings(lat1, lon1, cloudHeight, readings);
-      }
-    };
-
-    window.addEventListener("deviceorientation", handleOrientation);
-  });
-};
-
-async function processReadings(lat1, lon1, cloudHeight, readings) {
-  const R = 3958.8; // Earth radius in miles
-  let latSum = 0;
-  let lonSum = 0;
-
-  readings.forEach((r) => {
-    const headingRad = (r.heading * Math.PI) / 180;
-    const pitchRad = (r.pitch * Math.PI) / 180;
-    const distanceMiles = cloudHeight / Math.tan(pitchRad);
-
-    const latRad = (lat1 * Math.PI) / 180;
-
-    const lat2 = lat1 + (distanceMiles / R) * (180 / Math.PI) * Math.cos(headingRad);
-    const lon2 = lon1 + (distanceMiles / R) * (180 / Math.PI) * Math.sin(headingRad) / Math.cos(latRad);
-
-    latSum += lat2;
-    lonSum += lon2;
-  });
-
-  const avgLat = latSum / readings.length;
-  const avgLon = lonSum / readings.length;
-
-  status.textContent = `Estimated cloud coordinates: ${avgLat.toFixed(4)}, ${avgLon.toFixed(4)}`;
-
-  // --- Reverse geocode ---
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${avgLat}&lon=${avgLon}&format=json`);
-    const data = await res.json();
-    const city = data.address.city || data.address.town || data.address.village || data.address.county || "Unknown";
-    cityEl.textContent = `Cloud is over: ${city}`;
-  } catch (err) {
-    cityEl.textContent = `Reverse geocode failed: ${err}`;
+  if (!navigator.geolocation) {
+    statusEl.textContent = "Geolocation not supported.";
+    return;
   }
 
-  // --- Show map ---
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      estimateCloud(
+        pos.coords.latitude,
+        pos.coords.longitude
+      );
+    },
+    () => {
+      statusEl.textContent = "Location permission denied.";
+    },
+    { enableHighAccuracy: true }
+  );
+});
+
+// -------------------------------
+// Core Math (WORKING)
+// -------------------------------
+function estimateCloud(userLat, userLon) {
+  const cloudHeightFt = parseFloat(
+    document.getElementById("cloudType").value
+  );
+
+  const pitchRad = pitch * Math.PI / 180;
+
+  if (pitchRad <= 0) {
+    statusEl.textContent = "Tilt phone upward toward the cloud.";
+    return;
+  }
+
+  const distanceMiles =
+    (cloudHeightFt / 5280) / Math.tan(pitchRad);
+
+  const headingRad = heading * Math.PI / 180;
+  const earthRadius = 3958.8;
+
+  const cloudLat =
+    userLat +
+    (distanceMiles / earthRadius) *
+    (180 / Math.PI) *
+    Math.cos(headingRad);
+
+  const cloudLon =
+    userLon +
+    (distanceMiles / earthRadius) *
+    (180 / Math.PI) *
+    Math.sin(headingRad) /
+    Math.cos(userLat * Math.PI / 180);
+
+  statusEl.textContent =
+    `Estimated cloud position: ${cloudLat.toFixed(4)}, ${cloudLon.toFixed(4)}`;
+
+  showMap(cloudLat, cloudLon);
+  reverseGeocode(cloudLat, cloudLon);
+}
+
+// -------------------------------
+// Map Display
+// -------------------------------
+function showMap(lat, lon) {
+  const mapEl = document.getElementById("map");
+  mapEl.style.display = "block";
+
   if (!map) {
-    map = L.map('map').setView([avgLat, avgLon], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+    map = L.map("map").setView([lat, lon], 10);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap"
     }).addTo(map);
   } else {
-    map.setView([avgLat, avgLon], 10);
-    if (cloudMarker) map.removeLayer(cloudMarker);
+    map.setView([lat, lon], 10);
   }
 
-  cloudMarker = L.marker([avgLat, avgLon]).addTo(map)
-    .bindPopup(`Cloud over: ${city}`)
-    .openPopup();
+  if (cloudMarker) {
+    map.removeLayer(cloudMarker);
+  }
 
-  document.getElementById("map").style.display = "block";
+  cloudMarker = L.marker([lat, lon])
+    .addTo(map)
+    .bindPopup("Estimated cloud location")
+    .openPopup();
+}
+
+// -------------------------------
+// City Lookup (FREE)
+// -------------------------------
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+    );
+    const data = await res.json();
+
+    const place =
+      data.address.city ||
+      data.address.town ||
+      data.address.village ||
+      data.address.county ||
+      "Unknown area";
+
+    cityEl.textContent = `Cloud is over: ${place}`;
+  } catch {
+    cityEl.textContent = "City lookup failed.";
+  }
 }
